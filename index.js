@@ -19,7 +19,10 @@ bot.on("message", async (ctx) => {
   if (!msg.startsWith(PREFIX)) return
 
   const args = msg.slice(PREFIX.length).trim().split(/ +/)
-  const command = args.shift().toLowerCase()
+  // const command = args.shift().toLowerCase()
+
+  const command = args.shift().toLowerCase();
+  if (command.includes("@")) command = command.split("@")[0]; // hilangkan @NamaBot
 
   switch (PREFIX + command) {
     case PREFIX + "help": case PREFIX + "menu": {
