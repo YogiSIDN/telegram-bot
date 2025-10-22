@@ -1,16 +1,12 @@
 {
-  "name": "telegram-bot-vercel",
+  "name": "telegram-bot",
   "version": "1.0.0",
-  "description": "Telegram Bot untuk Vercel",
-  "main": "api/bot.js",
+  "description": "Bot Telegram sederhana untuk Vercel (tanpa import)",
+  "main": "index.js",
   "scripts": {
-    "start": "node api/bot.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "node-telegram-bot-api": "^0.64.0",
-    "axios": "^1.6.0"
-  },
-  "engines": {
-    "node": ">=18.x"
+    "node-fetch": "^2.6.7"
   }
 }
