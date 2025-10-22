@@ -2,13 +2,13 @@ const { Telegraf, Markup } = require("telegraf");
 const fetch = require("node-fetch");
 
 const TOKEN = process.env.BOT_TOKEN;
-const PREFIX = "/";
+const PREFIX = "!";
 const bot = new Telegraf(TOKEN);
 
-// Simpan data anime trending sementara per user
+// Cache sementara per chat
 const trendingCache = new Map();
 
-// === Fungsi ambil data trending anime dari AniList ===
+// === Fungsi ambil data trending anime ===
 async function getTrendingAnime() {
   const query = `
   query {
@@ -39,7 +39,7 @@ async function getTrendingAnime() {
   return data.data.Page.media;
 }
 
-// === Handler utama mirip Baileys ===
+// === Handler utama ===
 bot.on("text", async (ctx) => {
   const message = ctx.message.text.trim();
   if (!message.startsWith(PREFIX)) return;
@@ -54,21 +54,22 @@ bot.on("text", async (ctx) => {
         if (!animeList || animeList.length === 0)
           return ctx.reply("💔 Maaf, anime trending tidak ditemukan.");
 
+        // Simpan cache
         trendingCache.set(ctx.chat.id, { list: animeList, index: 0 });
 
-        const firstAnime = animeList[0];
-        const caption = `
-📗 *Title:* ${firstAnime.title.romaji || firstAnime.title.english}
-📘 *Type:* ${firstAnime.format || "Unknown"}
-📘 *Genres:* ${firstAnime.genres.join(", ")}
-⤗ *More Info:* ${PREFIX}aid ${firstAnime.id}
-        `;
+        const anime = animeList[0];
+        const caption = [
+          `📗 *Title:* ${escape(anime.title.romaji || anime.title.english)}`,
+          `📘 *Type:* ${escape(anime.format || "Unknown")}`,
+          `📘 *Genres:* ${escape(anime.genres.join(", "))}`,
+          `⤗ *More Info:* ${PREFIX}aid ${anime.id}`,
+        ].join("\n");
 
         await ctx.replyWithPhoto(
-          { url: firstAnime.coverImage.large },
+          { url: anime.coverImage.large },
           {
             caption,
-            parse_mode: "Markdown",
+            parse_mode: "MarkdownV2",
             reply_markup: Markup.inlineKeyboard([
               [
                 Markup.button.callback("⏮ Prev", "prev_anime"),
@@ -89,11 +90,11 @@ bot.on("text", async (ctx) => {
   }
 });
 
-// === Navigasi tombol Next / Prev ===
+// === Tombol Navigasi ===
 bot.action(["next_anime", "prev_anime"], async (ctx) => {
   try {
     const cache = trendingCache.get(ctx.chat.id);
-    if (!cache) return ctx.answerCbQuery("Data anime tidak ditemukan.");
+    if (!cache) return ctx.answerCbQuery("⚠️ Data anime tidak ditemukan.");
 
     let { list, index } = cache;
     if (ctx.callbackQuery.data === "next_anime") index++;
@@ -105,19 +106,19 @@ bot.action(["next_anime", "prev_anime"], async (ctx) => {
     const anime = list[index];
     trendingCache.set(ctx.chat.id, { list, index });
 
-    const caption = `
-📗 *Title:* ${anime.title.romaji || anime.title.english}
-📘 *Type:* ${anime.format || "Unknown"}
-📘 *Genres:* ${anime.genres.join(", ")}
-⤗ *More Info:* ${PREFIX}aid ${anime.id}
-    `;
+    const caption = [
+      `📗 *Title:* ${escape(anime.title.romaji || anime.title.english)}`,
+      `📘 *Type:* ${escape(anime.format || "Unknown")}`,
+      `📘 *Genres:* ${escape(anime.genres.join(", "))}`,
+      `⤗ *More Info:* ${PREFIX}aid ${anime.id}`,
+    ].join("\n");
 
     await ctx.editMessageMedia(
       {
         type: "photo",
         media: anime.coverImage.large,
         caption,
-        parse_mode: "Markdown",
+        parse_mode: "MarkdownV2",
       },
       {
         reply_markup: {
@@ -134,11 +135,16 @@ bot.action(["next_anime", "prev_anime"], async (ctx) => {
     await ctx.answerCbQuery();
   } catch (err) {
     console.error("Button error:", err);
-    ctx.answerCbQuery("Terjadi kesalahan.");
+    ctx.answerCbQuery("Terjadi kesalahan tombol.");
   }
 });
 
-// === Export handler untuk Vercel ===
+// === Escape text biar aman untuk MarkdownV2 ===
+function escape(text = "") {
+  return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, "\\$&");
+}
+
+// === Export untuk Vercel ===
 module.exports = async (req, res) => {
   try {
     if (req.method === "POST") {
