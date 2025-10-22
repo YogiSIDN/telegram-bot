@@ -2,8 +2,8 @@ const { Telegraf } = require("telegraf");
 const fetch = require("node-fetch");
 
 // Library
-const AniListAPI = require("./lib/search")
-const aniClient = new AniListAPI()
+const AniListAPI = require("./lib/search");
+const aniClient = new AniListAPI();
 
 const TOKEN = process.env.BOT_TOKEN;
 const PREFIX = "/";
@@ -11,10 +11,7 @@ const bot = new Telegraf(TOKEN);
 
 // === Command handler ===
 bot.on("message", async (ctx) => {
-  const budy = typeof ctx.message.text === "string" ? ctx.message.text : ""
-  const body = ctx.message.text || ctx.message.caption || ""
-  
-  const msg = ctx.message.text.trim();
+  const msg = (ctx.message.text || "").trim();
   if (!msg.startsWith(PREFIX)) return;
 
   const args = msg.slice(PREFIX.length).trim().split(/ +/);
@@ -22,18 +19,30 @@ bot.on("message", async (ctx) => {
 
   switch (PREFIX + command) {
     case PREFIX + "treanime": {
-      aniClient.getTrendingAnime().then(animeList => {
-            text_anime = ""
-            animeList.forEach((anime, index) => {
-            text_anime += `
+      try {
+        const animeList = await aniClient.getTrendingAnime();
+        if (!animeList || animeList.length === 0)
+          return ctx.reply("💔 Maaf, anime trending tidak ditemukan.");
+
+        let text_anime = "";
+        animeList.forEach((anime) => {
+          text_anime += `
 📗Title: ${anime.title.romaji || anime.title.english}
-📘Type: ${anime.format ? `${anime.format}` : "Unknown"}
+📘Type: ${anime.format || "Unknown"}
 📘Genres: ${anime.genres.join(", ")}
-⤗More Info: ${prefix}aid ${anime.id}
-`
-            })
-            text_anime += ""
-            await ctx.replyWithPhoto({ url: "https://img.anili.st/media/" + top5[0].id }, { caption: text_anime, parse_mode: "Markdown" });
+⤗More Info: ${PREFIX}aid ${anime.id}
+`;
+        });
+
+        const top = animeList[0];
+        await ctx.replyWithPhoto(
+          { url: "https://img.anili.st/media/" + top.id },
+          { caption: text_anime, parse_mode: "Markdown" }
+        );
+      } catch (err) {
+        console.error(err);
+        ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.");
+      }
       break;
     }
 
