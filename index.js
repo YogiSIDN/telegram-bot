@@ -1,43 +1,19 @@
 const { Telegraf } = require("telegraf");
 const fetch = require("node-fetch");
 
+// Library
+const AniListAPI = require("./lib/search")
+const aniClient = new AniListAPI()
+
 const TOKEN = process.env.BOT_TOKEN;
 const PREFIX = "/";
 const bot = new Telegraf(TOKEN);
 
-// === Ambil anime trending (max 5) ===
-async function getTrendingAnime() {
-  const query = `
-  query {
-    Page(perPage: 5) {
-      media(sort: TRENDING_DESC, type: ANIME) {
-        id
-        title {
-          romaji
-          english
-        }
-        format
-        genres
-        coverImage {
-          large
-        }
-      }
-    }
-  }`;
-
-  const res = await fetch("https://graphql.anilist.co", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
-  });
-
-  const data = await res.json();
-  if (!data.data) throw new Error("Gagal mengambil data dari AniList");
-  return data.data.Page.media;
-}
-
 // === Command handler ===
-bot.on("text", async (ctx) => {
+bot.on("message", async (ctx) => {
+  const budy = typeof ctx.message.text === "string" ? ctx.message.text : ""
+  const body = ctx.message.text || ctx.message.caption || ""
+  
   const msg = ctx.message.text.trim();
   if (!msg.startsWith(PREFIX)) return;
 
@@ -46,33 +22,18 @@ bot.on("text", async (ctx) => {
 
   switch (PREFIX + command) {
     case PREFIX + "treanime": {
-      try {
-        const animeList = await getTrendingAnime();
-
-        if (!animeList || animeList.length === 0) {
-          return ctx.reply("💔 Tidak ada anime trending ditemukan.");
-        }
-
-        // Ambil 5 anime
-        let caption = "🔥 *Top 5 Anime Trending Saat Ini:*\n\n";
-        animeList.forEach((anime, i) => {
-          caption += `${i + 1}. *${escape(
-            anime.title.romaji || anime.title.english
-          )}*\n`;
-          caption += `📘 Type: ${escape(anime.format || "Unknown")}\n`;
-          caption += `📚 Genres: ${escape(anime.genres.join(", "))}\n`;
-          caption += `🔗 More Info: ${PREFIX}aid ${anime.id}\n\n`;
-        });
-
-        // Kirim dengan gambar anime pertama
-        await ctx.replyWithPhoto(
-          { url: animeList[0].coverImage.large },
-          { caption, parse_mode: "MarkdownV2" }
-        );
-      } catch (err) {
-        console.error("Error:", err);
-        ctx.reply("💔 Terjadi kesalahan saat mengambil data anime.");
-      }
+      aniClient.getTrendingAnime().then(animeList => {
+            text_anime = ""
+            animeList.forEach((anime, index) => {
+            text_anime += `
+📗Title: ${anime.title.romaji || anime.title.english}
+📘Type: ${anime.format ? `${anime.format}` : "Unknown"}
+📘Genres: ${anime.genres.join(", ")}
+⤗More Info: ${prefix}aid ${anime.id}
+`
+            })
+            text_anime += ""
+            await ctx.replyWithPhoto({ url: "https://img.anili.st/media/" + top5[0].id }, { caption: text_anime, parse_mode: "Markdown" });
       break;
     }
 
