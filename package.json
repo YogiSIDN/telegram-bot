@@ -8,6 +8,9 @@
   },
   "dependencies": {
     "node-fetch": "^2.6.1",
-    "telegraf": "^4.16.3"
+    "os": "^0.1.2",
+    "process": "^0.11.10",
+    "telegraf": "^4.16.3",
+    "v8": "^0.1.0"
   }
 }
