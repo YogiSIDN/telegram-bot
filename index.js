@@ -19,8 +19,8 @@ bot.on("message", async (ctx) => {
   if (!msg.startsWith(PREFIX)) return
 
   const args = msg.slice(PREFIX.length).trim().split(/ +/)
-  let command = args.shift().toLowerCase() // ← gunakan let agar bisa dimodifikasi
-  if (command.includes("@")) command = command.split("@")[0] // hilangkan @NamaBot
+  let command = args.shift().toLowerCase()
+  if (command.includes("@")) command = command.split("@")[0]
   const text = args.join(" ")
 
   switch (PREFIX + command) {
@@ -49,8 +49,8 @@ Bot masih dalam tahap pengembangan.`)
         // Simpan daftar anime di cache
         animeCache.set(ctx.chat.id, animeList)
 
-        // Kirim anime pertama
-        await sendAnime(ctx, 0)
+        // Kirim anime pertama (1 pesan saja)
+        await sendAnime(ctx, 0, true)
       } catch (err) {
         console.error(err)
         ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.")
@@ -63,13 +63,12 @@ Bot masih dalam tahap pengembangan.`)
   }
 })
 
-// === Fungsi kirim anime ===
-async function sendAnime(ctx, index) {
+// === Fungsi kirim / edit anime ===
+async function sendAnime(ctx, index, isNew = false) {
   const chatId = ctx.chat.id
   const animeList = animeCache.get(chatId)
   if (!animeList) return ctx.reply("❌ Data anime tidak ditemukan.")
 
-  // Batasi index agar tetap valid
   if (index < 0) index = animeList.length - 1
   if (index >= animeList.length) index = 0
 
@@ -79,73 +78,56 @@ async function sendAnime(ctx, index) {
 📗Title: ${anime.title.romaji || anime.title.english}
 📘Type: ${anime.format || "Unknown"}
 📘Genres: ${anime.genres.join(", ")}
-⤗More Info: ${PREFIX}aid ${anime.id}
 `
-
-  // Hindari melebihi batas caption
-  if (text_anime.length > 1000) text_anime = text_anime.slice(0, 1000) + "…"
 
   const buttons = Markup.inlineKeyboard([
     [
       Markup.button.callback("⬅️ Previous", `prev_${index}`),
+      Markup.button.callback("ℹ️ More Info", `info_${anime.id}_${index}`),
       Markup.button.callback("Next ➡️", `next_${index}`),
     ],
   ])
 
-  await ctx.replyWithPhoto(
-    { url: "https://img.anili.st/media/" + anime.id },
-    { caption: text_anime, parse_mode: "Markdown", ...buttons }
-  )
+  if (isNew) {
+    await ctx.replyWithPhoto(
+      { url: "https://img.anili.st/media/" + anime.id },
+      { caption: text_anime, parse_mode: "Markdown", ...buttons }
+    )
+  } else {
+    await ctx.editMessageMedia(
+      {
+        type: "photo",
+        media: "https://img.anili.st/media/" + anime.id,
+        caption: text_anime,
+        parse_mode: "Markdown",
+      },
+      { reply_markup: buttons.reply_markup }
+    )
+  }
 }
 
-// === Event tombol navigasi ===
+// === Event tombol navigasi dan info ===
 bot.on("callback_query", async (ctx) => {
   try {
     const chatId = ctx.chat.id
     const data = ctx.callbackQuery.data
     const animeList = animeCache.get(chatId)
+    if (!animeList) return ctx.answerCbQuery("Data anime tidak ditemukan")
 
-    // === Handler tombol navigasi ===
+    // === Next & Previous ===
     if (data.startsWith("next_") || data.startsWith("prev_")) {
       const [action, indexStr] = data.split("_")
       let index = parseInt(indexStr)
       if (action === "next") index++
-      else if (action === "prev") index--
+      else index--
 
-      if (index < 0) index = animeList.length - 1
-      if (index >= animeList.length) index = 0
-
-      const anime = animeList[index]
-
-      let text_anime = `
-📗Title: ${anime.title.romaji || anime.title.english}
-📘Type: ${anime.format || "Unknown"}
-📘Genres: ${anime.genres.join(", ")}
-`
-
-      const buttons = Markup.inlineKeyboard([
-        [
-          Markup.button.callback("⬅️ Previous", `prev_${index}`),
-          Markup.button.callback("Next ➡️", `next_${index}`),
-        ],
-        [Markup.button.callback("ℹ️ More Info", `info_${anime.id}`)],
-      ])
-
-      await ctx.editMessageMedia(
-        {
-          type: "photo",
-          media: "https://img.anili.st/media/" + anime.id,
-          caption: text_anime,
-          parse_mode: "Markdown",
-        },
-        { reply_markup: buttons.reply_markup }
-      )
+      await sendAnime(ctx, index)
       return await ctx.answerCbQuery()
     }
 
-    // === Handler tombol More Info ===
+    // === More Info ===
     if (data.startsWith("info_")) {
-      const animeId = data.split("_")[1]
+      const [_, animeId, indexStr] = data.split("_")
       const anime = await aniClient.searchAnimeById(animeId)
 
       let animeId_text = `
@@ -162,6 +144,10 @@ bot.on("callback_query", async (ctx) => {
 📙Synopsis: ${anime.description?.replace(/<br>|<i>|<\/i>|<\/?b>/g, "") || "-"}
 `
 
+      const buttons = Markup.inlineKeyboard([
+        [Markup.button.callback("⬅️ Back", `back_${indexStr}`)],
+      ])
+
       await ctx.editMessageMedia(
         {
           type: "photo",
@@ -169,19 +155,14 @@ bot.on("callback_query", async (ctx) => {
           caption: animeId_text,
           parse_mode: "Markdown",
         },
-        {
-          reply_markup: Markup.inlineKeyboard([
-            [Markup.button.callback("⬅️ Back", `back_${anime.id}`)],
-          ]).reply_markup,
-        }
+        { reply_markup: buttons.reply_markup }
       )
       return await ctx.answerCbQuery()
     }
 
-    // === Tombol Back untuk kembali ke list utama ===
+    // === Back ===
     if (data.startsWith("back_")) {
-      const animeId = data.split("_")[1]
-      const index = animeList.findIndex((a) => a.id == animeId)
+      const index = parseInt(data.split("_")[1])
       await sendAnime(ctx, index)
       return await ctx.answerCbQuery()
     }
