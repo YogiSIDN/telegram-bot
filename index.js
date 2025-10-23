@@ -21,6 +21,7 @@ bot.on("message", async (ctx) => {
   const args = msg.slice(PREFIX.length).trim().split(/ +/)
   let command = args.shift().toLowerCase() // ← gunakan let agar bisa dimodifikasi
   if (command.includes("@")) command = command.split("@")[0] // hilangkan @NamaBot
+  const text = args.join(" ")
 
   switch (PREFIX + command) {
     case PREFIX + "help":
@@ -53,6 +54,61 @@ Bot masih dalam tahap pengembangan.`)
       } catch (err) {
         console.error(err)
         ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.")
+      }
+      break
+    }
+    case PREFIX + "aid": {
+      if (!text) return ctx.reply("Beri aku id Baka (*￣ii￣)")
+
+      // === Jika opsi -char digunakan ===
+      if (args[1] === "-char") {
+        aniClient
+          .searchAnimeById(args[0])
+          .then(async (animeChar) => {
+            let animeChar_text = ""
+            animeChar.characters.nodes.forEach((character, index) => {
+              animeChar_text += `
+📗Name: ${character.name.full || character.name.native}
+📘ID: ${character.id}
+⤗More Info: ${PREFIX}charid ${character.id}
+~🤍Relationship: ${PREFIX}marry ${character.id}~
+(soon.)
+`
+            })
+            animeChar_text += ""
+
+            await ctx.replyWithPhoto(
+              { url: animeChar.characters.nodes[0].image.large },
+              { caption: animeChar_text }
+            )
+          })
+          .catch((error) => {
+            ctx.reply("💔️ Maaf, Character tidak ditemukan")
+          })
+      } else {
+        aniClient
+          .searchAnimeById(text)
+          .then(async (anime) => {
+            const animeId_text = `📗Title: ${anime.title.romaji || anime.title.english}
+📘Genres: ${anime.genres.join(", ")}
+📙Episode: ${anime.episodes ? `${anime.episodes}` : "0"}
+📙Type: ${anime.format ? `${anime.format}` : "Unknown"}
+↹Status: ${anime.status}
+↛Aired: ${anime.startDate}
+↯Rating: ${anime.averageScore ? `${anime.averageScore}%` : "-"}
+🕒Duration: ${anime.duration ? `${anime.duration} Minutes` : "-"}
+⤗Season: ${anime.season ? anime.season : "-"} ${anime.seasonYear ? anime.seasonYear : ""}
+💫Adaption: ${anime.source}
+📙Synopsis: ${anime.description ? `${anime.description}` : `-`}`
+
+            await ctx.replyWithPhoto(
+              { url: "https://img.anili.st/media/" + anime.id },
+              { caption: animeId_text }
+            )
+          })
+          .catch((error) => {
+            ctx.reply("💔️ Maaf, Anime tidak ditemukan")
+          })
       }
       break
     }
