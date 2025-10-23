@@ -26,7 +26,7 @@ bot.on("message", async (ctx) => {
   switch (PREFIX + command) {
     case PREFIX + "help":
     case PREFIX + "menu": {
-      ctx.reply(`👋 Hai
+      ctx.replyWithMarkdown(`👋 Hai
 
 ${PREFIX}status
 ${PREFIX}treanime
