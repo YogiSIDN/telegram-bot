@@ -79,7 +79,7 @@ async function sendAnime(ctx, index, isNew = false) {
 `
 
 const buttons = Markup.inlineKeyboard([
-  Markup.button.callback("📋 List Character", `chars_${anime.id}_${index}`),
+  [Markup.button.callback("📋 List Character", `chars_${anime.id}_${index}`)],
   [Markup.button.callback("⬅️ Previous", `prev_${index}`)],
   [Markup.button.callback("Next ➡️", `next_${index}`)],
 ])
