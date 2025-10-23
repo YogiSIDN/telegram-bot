@@ -40,27 +40,26 @@ Bot masih dalam tahap pengembangan.`)
       break
     }
 
-    case PREFIX + "treanime": {
-      try {
-        const animeList = await aniClient.getTrendingAnime()
-        if (!animeList || animeList.length === 0)
-          return ctx.reply("💔 Maaf, anime trending tidak ditemukan.")
+case PREFIX + "treanime": {
+  try {
+    const animeList = await aniClient.getTrendingAnime()
+    if (!animeList || animeList.length === 0)
+      return ctx.reply("💔 Maaf, anime trending tidak ditemukan.")
 
-        // Simpan daftar anime di cache
-        animeCache.set(ctx.chat.id, animeList)
+    // Simpan daftar anime di cache
+    animeCache.set(ctx.chat.id, animeList)
 
-        // Kirim anime pertama (1 pesan saja)
-        await sendAnime(ctx, 0, true)
-      } catch (err) {
-        console.error(err)
-        ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.")
-      }
-      break
-    }
-
-    default:
-      ctx.reply("❌ Perintah tidak dikenal!")
+    // Kirim anime pertama (1 pesan saja)
+    await sendAnime(ctx, 0, true)
+  } catch (err) {
+    console.error(err)
+    ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.")
   }
+  break
+}
+
+default:
+  ctx.reply("❌ Perintah tidak dikenal!")
 })
 
 // === Fungsi kirim / edit anime ===
@@ -83,7 +82,7 @@ async function sendAnime(ctx, index, isNew = false) {
   const buttons = Markup.inlineKeyboard([
     [
       Markup.button.callback("⬅️ Previous", `prev_${index}`),
-      Markup.button.callback("ℹ️ More Info", `info_${anime.id}_${index}`),
+      Markup.button.callback("📋 List Character", `chars_${anime.id}_${index}`),
       Markup.button.callback("Next ➡️", `next_${index}`),
     ],
   ])
@@ -125,7 +124,54 @@ bot.on("callback_query", async (ctx) => {
       return await ctx.answerCbQuery()
     }
 
-    // === More Info ===
+    // === List Character ===
+    if (data.startsWith("chars_")) {
+      const [_, animeId, indexStr] = data.split("_")
+      const index = parseInt(indexStr)
+      
+      try {
+        const anime = await aniClient.searchAnimeById(animeId)
+        
+        if (!anime.characters || !anime.characters.nodes || anime.characters.nodes.length === 0) {
+          return ctx.answerCbQuery("❌ Tidak ada character yang ditemukan untuk anime ini.")
+        }
+
+        let charactersText = `🎭 *Characters dari ${anime.title.romaji || anime.title.english}*\n\n`
+        
+        // Ambil maksimal 10 character pertama
+        anime.characters.nodes.slice(0, 10).forEach((character, charIndex) => {
+          charactersText += `📗 ${charIndex + 1}. ${character.name.full || character.name.native}\n`
+          charactersText += `📘 ID: ${character.id}\n`
+          charactersText += `⤗ More Info: ${prefix}charid ${character.id}\n`
+          charactersText += "━━━━━━━━━━━━━━━━━━━━\n"
+        })
+
+        if (anime.characters.nodes.length > 10) {
+          charactersText += `\n📋 ...dan ${anime.characters.nodes.length - 10} character lainnya`
+        }
+
+        const backButton = Markup.inlineKeyboard([
+          [Markup.button.callback("⬅️ Back to Anime", `back_${index}`)]
+        ])
+
+        await ctx.editMessageMedia(
+          {
+            type: "photo",
+            media: anime.characters.nodes[0]?.image?.large || "https://img.anili.st/media/" + anime.id,
+            caption: charactersText,
+            parse_mode: "Markdown",
+          },
+          { reply_markup: backButton.reply_markup }
+        )
+        
+      } catch (error) {
+        console.error(error)
+        ctx.answerCbQuery("❌ Gagal mengambil data character.")
+      }
+      return await ctx.answerCbQuery()
+    }
+
+    // === More Info (jika masih ingin mempertahankan) ===
     if (data.startsWith("info_")) {
       const [_, animeId, indexStr] = data.split("_")
       const anime = await aniClient.searchAnimeById(animeId)
