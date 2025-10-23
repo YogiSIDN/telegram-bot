@@ -19,25 +19,26 @@ bot.on("message", async (ctx) => {
   if (!msg.startsWith(PREFIX)) return
 
   const args = msg.slice(PREFIX.length).trim().split(/ +/)
-  // const command = args.shift().toLowerCase()
-
-  const command = args.shift().toLowerCase();
-  if (command.includes("@")) command = command.split("@")[0]; // hilangkan @NamaBot
+  let command = args.shift().toLowerCase() // ← gunakan let agar bisa dimodifikasi
+  if (command.includes("@")) command = command.split("@")[0] // hilangkan @NamaBot
 
   switch (PREFIX + command) {
-    case PREFIX + "help": case PREFIX + "menu": {
-        ctx.reply(`👋 Hai
+    case PREFIX + "help":
+    case PREFIX + "menu": {
+      ctx.reply(`👋 Hai
 
 ${PREFIX}status
 ${PREFIX}treanime
 
 Bot masih dalam tahap pengembangan.`)
-        break
+      break
     }
+
     case PREFIX + "status": {
-        ctx.reply(serverStatus())
-        break
+      ctx.reply(serverStatus())
+      break
     }
+
     case PREFIX + "treanime": {
       try {
         const animeList = await aniClient.getTrendingAnime()
@@ -53,7 +54,7 @@ Bot masih dalam tahap pengembangan.`)
         console.error(err)
         ctx.reply("⚠️ Terjadi kesalahan saat mengambil data anime.")
       }
-        break
+      break
     }
 
     default:
@@ -139,7 +140,7 @@ bot.on("callback_query", async (ctx) => {
         caption: text_anime,
         parse_mode: "Markdown",
       },
-      buttons
+      { reply_markup: buttons.reply_markup } // ← perbaikan penting
     )
 
     await ctx.answerCbQuery()
